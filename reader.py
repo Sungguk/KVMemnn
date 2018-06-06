@@ -2,7 +2,7 @@ import json
 import csv
 import random
 import operator
-
+import io
 import numpy as np
 import pandas as pd
 from keras.utils.np_utils import to_categorical
@@ -24,7 +24,7 @@ class Vocabulary(object):
             :param vocabulary_file: the path to the vocabulary
         """
         self.vocabulary_file = vocabulary_file
-        with open(vocabulary_file, 'r',encoding='utf-8') as f:
+        with io.open(vocabulary_file, 'r',encoding='utf-8') as f:
             self.vocabulary = json.load(f)
 
         self.padding = padding
@@ -114,9 +114,10 @@ class Data(object):
         self.inputs = []
         self.targets = []
 
-        with open(self.file_name, 'r',encoding='utf-8') as f:
+        with io.open(self.file_name, 'r',encoding='utf-8') as f:
             reader = csv.reader(f)
             for row in reader:
+                print(row)
                 #print(row[1],row[2])
                 self.inputs.append(row[0])
                 self.targets.append(row[1])

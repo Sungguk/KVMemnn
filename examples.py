@@ -76,12 +76,12 @@ def run_examples(model, kbs, vocabulary, examples=EXAMPLES):
 
 if __name__ == "__main__":
     pad_length = 20
-    df = pd.read_csv("../data/test_data.csv")
+    df = pd.read_csv("data/test_data.csv")
     inputs = list(df["inputs"])
     outputs = list(df["outputs"])
-    vocab = Vocabulary('../data/vocabulary.json', padding=pad_length)
+    vocab = Vocabulary('data/vocabulary.json', padding=pad_length)
 
-    kb_vocabulary = Vocabulary('../data/vocabulary.json',padding = 4)
+    kb_vocabulary = Vocabulary('data/vocabulary.json',padding = 4)
 
     model = memnn(pad_length=20,
                   embedding_size=200,
@@ -92,10 +92,10 @@ if __name__ == "__main__":
                   embedding_learnable=True,
                   encoder_units=200,
                   decoder_units=200)
-    weights_file = "../model_weights_nkbbl.hdf5"
+    weights_file = "model_weights_nkbb.hdf5"
     model.load_weights(weights_file, by_name=True)
 
-    kbfile = "../data/normalised_kbtuples.csv"
+    kbfile = "data/normalised_kbtuples.csv"
     df = pd.read_csv(kbfile)
     kbs = list(df["subject"] + " " + df["relation"])
     # print(kbs[:3])
