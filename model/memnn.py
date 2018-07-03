@@ -1,85 +1,63 @@
-import os
-import argparse
-import numpy as np
-import os
-import keras
-from keras.layers import Lambda
-#from keras import backend as k
-from keras.models import Model
-from keras.layers import Dense, Embedding, Activation, Permute
-from keras import regularizers, constraints, initializers, activations
-from keras.layers import Input, Flatten, Dropout
-from keras.layers.recurrent import LSTM
-from keras.layers.wrappers import TimeDistributed, Bidirectional
-from keras.callbacks import ModelCheckpoint
-from reader import Data,Vocabulary
+import torch
+import torch.nn as nn
+from torch import optim
+import torch.nn.functional as F
 
-def reshape4(tensor,batch_size,pad_length,seq_length):
-    v = keras.backend.zeros((batch_size, pad_length, 431))
-    tensor = keras.backend.reshape(tensor, (batch_size, pad_length, seq_length))
-    tensor = keras.layers.concatenate([tensor, v], axis=2)
-    return tensor
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def reshape(tensor,batch_size,seq_length,embed_size,pad_length):
-    tensor = keras.backend.sum(tensor, axis=2)
-    tensor=keras.backend.reshape(tensor,(batch_size,embed_size,seq_length))
+    tensor = torch.sum(tensor, dim=2)
+    tensor= torch.reshape(tensor,(batch_size,embed_size,seq_length))
     return tensor
 
 def reshape2(tensor,batch_size,pad_length,seq_length):
-    tensor=tensor[:batch_size, :pad_length,]
-    v = keras.backend.zeros((batch_size, pad_length, 1523))
-    tensor = keras.backend.reshape(tensor, (batch_size, pad_length,431))
-    tensor = keras.layers.concatenate([v, tensor], axis=2)
+    tensor = tensor[:batch_size, :pad_length,]
+    v = torch.zeros((batch_size, pad_length, 1523))
+    tensor = torch.reshape(tensor, (batch_size, pad_length,431))
+    tensor = torch.cat((v, tensor), dim=2)
     return tensor
 
 def reshaped(tensor,batch_size,pad_length,seq_length):
-    tensor = keras.backend.reshape(tensor, (batch_size,pad_length,seq_length))
+    tensor = torch.reshape(tensor, (batch_size,pad_length,seq_length))
     return tensor
 
-def memnn(pad_length=20,batch_size=100,embedding_size=200,n_chars=20,vocab_size=1000,
-              n_labels=20,
-              embedding_learnable=False,
-              encoder_units=256,
-              decoder_units=256,
-              trainable=True):
- 
-    # input1: Dialogues 
-    input1 = Input(shape=(pad_length,), dtype='float32')
-    input_embed1 = Embedding(vocab_size, embedding_size,
-                             input_length=pad_length,
-                             trainable=True,
-                             name='OneHot1')(input1)
+class Model(nn.Module):
+    def __init__(self, pad_length=20,batch_size=100,embedding_size=200,n_chars=20,vocab_size=1000,n_labels=20,encoder_units=256,decoder_units=256):
+        super(Model, self).__init__()
+        self.pad_length = pad_length
+        self.batch_size = batch_size
+        self.embedding_size = embedding_size
+        self.n_chars = n_chars
+        self.vocab_size = vocab_size
+        self.n_labels =  n_labels
+        self.encoder_units = encoder_units
+        self.decoder_units = decoder_units
 
-    dropout = Dropout(0.2)(input_embed1)
-    encoder = LSTM(encoder_units, return_sequences=True)(dropout)
-    decoder = LSTM(decoder_units, return_sequences=True)(encoder)
-    dense1 = Dense(200, activation='tanh')(encoder)
-    dense2 = Dense(200, activation='tanh')(decoder)
-    dense3 = Dense(200, activation='tanh')(keras.layers.add([dense1, dense2])) #equation 2 (refer to https://arxiv.org/pdf/1705.05414.pdf)
-    attention = Activation('softmax')(dense3) #equation 3
-    n_hidden = keras.layers.multiply([attention, encoder]) #equation 4  
-    output = Dense(1954)(keras.layers.concatenate([encoder, n_hidden])) #equation 5
+    def forward(self, input_dialogues, input_keyvalues):
+        #input1: Dialogues
+        input_embed1 = nn.Embedding(self.vocab_size, self.embedding_size, self.pad_length)(input_dialogues)
+        dropout = nn.Dropout(0.2)(input_embed1)
+        encoder = nn.LSTM(self.encoder_units)(dropout)
+        decoder = nn.LSTM(self.decoder_units)(encoder)
+        dense1 = nn.Sequential(nn.Linear(200),nn.tanh())(encoder)
+        dense2 = nn.Sequential(nn.Linear(200),nn.tanh())(decoder)
+        dense3 = nn.Sequential(nn.Linear(200),nn.tanh())(torch.add(dense1, dense2)) #equation 2 (refer to https://arxiv.org/pdf/1705.05414.pdf)
+        attention = F.softmax(dense3) #equation 3
+        n_hidden = torch.mul(attention, encoder) #equation 4  
+        output = nn.Linear(1954)(torch.cat((encoder, n_hidden), dim=0)) #equation 5
+    
+        # input2: Key value table
+        input_embed2 = nn.Embedding(self.vocab_size, self.embedding_size,431)(input_keyvalues)
+        input_embed2 = reshape(input_embed2, self.batch_size, 431, self.embedding_size, self.pad_length)
+        decoder = reshaped(decoder, self.batch_size, self.pad_length, self.decoder_units)
+        n_dense1 = nn.Sequential(nn.Linear(20),nn.tanh())(input_embed2)
+        n_dense1 = reshaped(n_dense1, batch_size, self.pad_length,  self.decoder_units)
+        n_dense2 = nn.Sequential(nn.Linear(200),nn.tanh())(decoder)
+        n_dense3 = nn.Sequential(nn.Linear(431),nn.tanh())(torch.cat(n_dense1, n_dense2, 0)) #equation 7
+        n_dense3 = reshape2(n_dense3, self.batch_size,  pad_length, 431)
+        n_out = torch.add(output, n_dense3) # equation 8
+        n_output = F.softmax(n_out) # equation 9
+        return n_output
 
-
-    # input2: Key value table
-    input2 = Input(shape=(431, 4), dtype='float32')
-
-    input_embed2 = Embedding(vocab_size, embedding_size,
-                             input_length=431,
-                             trainable=True,
-                             name='OneHot2')(input2)
-    input_embed2 = Lambda(reshape, arguments={'batch_size': batch_size, 'seq_length': 431, 'embed_size': embedding_size,
-                                              'pad_length': pad_length}, name='input_key_embed')(input_embed2)
-
-    decoder = Lambda(reshaped,arguments={'batch_size': batch_size, 'pad_length': pad_length, 'seq_length': decoder_units})(decoder)
-    n_dense1 = Dense(20, activation='tanh')(input_embed2)
-    n_dense1 = Lambda(reshaped,arguments={'batch_size': batch_size, 'pad_length': pad_length, 'seq_length': decoder_units})(n_dense1)
-    n_dense2 = Dense(200, activation='tanh')(decoder)
-    n_dense3 = Dense(431, activation='tanh')(keras.layers.concatenate([n_dense1, n_dense2], axis=1)) #equation 7
-    n_dense3 = Lambda(reshape2, arguments={'batch_size': batch_size, 'pad_length': pad_length, 'seq_length': 431},
-                      name='lambda3')(n_dense3)
-    n_out = keras.layers.add([output, n_dense3]) # equation 8
-    n_output = Activation('softmax')(n_out) # equation 9
-    print(input_embed1.shape, input_embed2.shape, encoder.shape, decoder.shape, dense3.shape)
-    model = Model([input1, input2], n_output)
-    return model
+    def initHidden(self):
+        return torch.zeros(1, 1, self.hidden_size, device=device)
