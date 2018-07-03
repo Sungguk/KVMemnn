@@ -6,27 +6,17 @@ import os
 import argparse
 import numpy as np
 import os
-import keras
-from keras.layers import Lambda
-#from keras import backend as k
-from keras.models import Model
-from keras.layers import Dense, Embedding, Activation, Permute
-from keras import regularizers, constraints, initializers, activations
-from keras.layers import Input, Flatten, Dropout
-from keras.layers.recurrent import LSTM
-from keras.layers.wrappers import TimeDistributed, Bidirectional
-from keras.callbacks import ModelCheckpoint
+import torch
 from reader import Data,Vocabulary
-from model.memnn import memnn
-
+from model.memnn import KVMMModel
+from torchsummary import summary
 
 # create a directory if it doesn't already exist
 if not os.path.exists('./weights'):
     os.makedirs('./weights/')
 
 def main(args):
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # Dataset functions
     vocab = Vocabulary('./data/vocabulary.json', padding=args.padding)
     vocab = Vocabulary('./data/vocabulary.json',
@@ -45,37 +35,15 @@ def main(args):
     print('Datasets Loaded.')
     print('Compiling Model.')
 
-    model = memnn(pad_length=args.padding,
+    model = KVMMModel(pad_length=args.padding,
                   embedding_size=args.embedding,
                   vocab_size=vocab.size(),
                   batch_size=args.batch_size,
                   n_chars=vocab.size(),
                   n_labels=vocab.size(),
-                  embedding_learnable=True,
                   encoder_units=200,
-                  decoder_units=200,trainable=True)
+                  decoder_units=200).to(device)
 
-    model.summary()
-    model.compile(optimizer='adam',
-                  loss='categorical_crossentropy',
-                  metrics=['accuracy', ])
-    print('Model Compiled.')
-    print('Training. Ctrl+C to end early.')
-
-    try:
-        model.fit_generator(generator=training.generator(args.batch_size),
-                            steps_per_epoch=300,
-                            validation_data=validation.generator(args.batch_size),
-                            validation_steps=10,
-                            workers=1,
-                            verbose=1,
-                            epochs=args.epochs)
-
-    except KeyboardInterrupt as e:
-        print('Model training stopped early.')
-    model.save_weights("model_weights_nkbb.hdf5")
-
-    print('Model training complete.')
 
     #run_examples(model, input_vocab, output_vocab)
 

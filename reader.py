@@ -5,8 +5,6 @@ import operator
 import io
 import numpy as np
 import pandas as pd
-from keras.utils.np_utils import to_categorical
-from keras.preprocessing.text import Tokenizer
 from nltk.tokenize import word_tokenize
 
 
@@ -144,7 +142,7 @@ class Data(object):
             try:
                 batch_ids = random.sample(instance_id, batch_size)
                 targets=np.array(self.targets[batch_ids])
-                targets = np.array(list(map(lambda x: to_categorical(x,num_classes=self.output_vocabulary.size()),targets)))
+                targets = np.array(list(map(lambda x: np.eye(self.output_vocabulary.size(), dtype='uint8')[x],targets)))
                 yield ([np.array(self.inputs[batch_ids], dtype=int),np.repeat(self.kbs[np.newaxis,:,:],batch_size,axis=0)],np.array(targets))
             except Exception as e:
                 print('EXCEPTION OMG')

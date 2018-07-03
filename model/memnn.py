@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from torch import optim
 import torch.nn.functional as F
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -21,9 +20,9 @@ def reshaped(tensor,batch_size,pad_length,seq_length):
     tensor = torch.reshape(tensor, (batch_size,pad_length,seq_length))
     return tensor
 
-class Model(nn.Module):
+class KVMMModel(nn.Module):
     def __init__(self, pad_length=20,batch_size=100,embedding_size=200,n_chars=20,vocab_size=1000,n_labels=20,encoder_units=256,decoder_units=256):
-        super(Model, self).__init__()
+        super(KVMMModel, self).__init__()
         self.pad_length = pad_length
         self.batch_size = batch_size
         self.embedding_size = embedding_size
@@ -61,3 +60,6 @@ class Model(nn.Module):
 
     def initHidden(self):
         return torch.zeros(1, 1, self.hidden_size, device=device)
+
+
+
