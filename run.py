@@ -88,7 +88,7 @@ def main(args):
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
-    print_every = 1
+    print_every = 10
     start = time.time() 
     n_iters = 1000000
 
