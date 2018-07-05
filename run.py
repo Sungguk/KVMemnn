@@ -2,15 +2,12 @@
     Runs a simple Neural Machine Translation model
     Type `python run.py -h` for help with arguments.
 """
-import os,sys
-import argparse
+import os,sys,time,argparse,torch,random,math
 import numpy as np
-import torch
 from torch import optim,nn
 from reader import Data,Vocabulary
 from model.memnn import KVMMModel
 from torchsummary import summary
-import random
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -18,9 +15,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if not os.path.exists('./weights'):
     os.makedirs('./weights/')
 
-MAX_LENGTH = 20
-
-def train(input_tensor, target_tensor, kbs, model, model_optimizer, criterion, max_length=MAX_LENGTH):
+def train(input_tensor, target_tensor, kbs, model, model_optimizer, criterion):
 #    model_hidden = model.initHidden()
 
     model_optimizer.zero_grad()
@@ -28,45 +23,34 @@ def train(input_tensor, target_tensor, kbs, model, model_optimizer, criterion, m
     input_length = input_tensor.size
     target_length = target_tensor.size
 
-
-    model_outputs = torch.zeros(max_length, 1, device=device)
-
-    loss = 0
     input_tensor = torch.from_numpy(np.expand_dims(input_tensor,axis=0))
     kbs = torch.from_numpy(np.expand_dims(kbs,axis=0))
+    target_tensor = torch.from_numpy(np.expand_dims(target_tensor,axis=0))
+
+
+
+    # Teacher forcing: Feed the target as the next input
     output = model(input_tensor, kbs)
-#
-#    decoder_input = torch.tensor([[SOS_token]], device=device)
-#
-#    decoder_hidden = encoder_hidden
-#
-#    use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
-#
-#    if use_teacher_forcing:
-#        # Teacher forcing: Feed the target as the next input
-#        for di in range(target_length):
-#            decoder_output, decoder_hidden, decoder_attention = decoder(
-#                decoder_input, decoder_hidden, encoder_outputs)
-#            loss += criterion(decoder_output, target_tensor[di])
-#            decoder_input = target_tensor[di]  # Teacher forcing
-#
-#    else:
-#        # Without teacher forcing: use its own predictions as the next input
-#        for di in range(target_length):
-#            decoder_output, decoder_hidden, decoder_attention = decoder(
-#                decoder_input, decoder_hidden, encoder_outputs)
-#            topv, topi = decoder_output.topk(1)
-#            decoder_input = topi.squeeze().detach()  # detach from history as input
-#
-#            loss += criterion(decoder_output, target_tensor[di])
-#            if decoder_input.item() == EOS_token:
-#                break
-#
-#    loss.backward()
-#
-#    encoder_optimizer.step()
-#    decoder_optimizer.step()
-#    return loss.item() / target_length
+    output=output.type(torch.FloatTensor)
+    loss = criterion(output[0], target_tensor[0])
+    loss.backward()
+    model_optimizer.step()
+    return loss.item()
+
+def asMinutes(s):
+    m = math.floor(s / 60)
+    s -= m * 60
+    return '%dm %ds' % (m, s)
+
+
+def timeSince(since, percent):
+    now = time.time()
+    s = now - since
+    if percent == 0:
+        percent = 0.001
+    es = s / (percent)
+    rs = es - s
+    return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
 
 def main(args):
@@ -99,14 +83,28 @@ def main(args):
 
     print(model)
     model_optimizer = optim.SGD(model.parameters(), lr=0.01)
-    criterion = nn.NLLLoss()
+    criterion = nn.CrossEntropyLoss()
 
+    plot_losses = []
+    print_loss_total = 0  # Reset every print_every
+    plot_loss_total = 0  # Reset every plot_every
+    print_every = 1
+    start = time.time() 
+    n_iters = 1000000
 
-    for iter in range(1, 2):
+    for iter in range(1, n_iters):
         input_tensor = training.inputs[iter-1]
         target_tensor = training.targets[iter-1]
         loss = train(input_tensor, target_tensor, training.kbs, model, model_optimizer, criterion)
-        
+        print_loss_total += loss
+        plot_loss_total += loss
+
+        if iter % print_every == 0:
+            print_loss_avg = print_loss_total / print_every
+            print_loss_total = 0
+            print('%s (%d %d%%) %.4f' % (timeSince(start, iter / n_iters),
+                                         iter, iter / n_iters * 100, print_loss_avg))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
