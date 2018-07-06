@@ -8,6 +8,7 @@ from torch import optim,nn
 from reader import Data,Vocabulary
 from model.memnn import KVMMModel
 from torchsummary import summary
+from random import randint
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -18,7 +19,6 @@ if not os.path.exists('./weights'):
 def train(input_tensor, target_tensor, kbs, model, model_optimizer, criterion):
 #    model_hidden = model.initHidden()
 
-    model_optimizer.zero_grad()
 
     input_length = input_tensor.size
     target_length = target_tensor.size
@@ -26,8 +26,6 @@ def train(input_tensor, target_tensor, kbs, model, model_optimizer, criterion):
     input_tensor = torch.from_numpy(np.expand_dims(input_tensor,axis=0))
     kbs = torch.from_numpy(np.expand_dims(kbs,axis=0))
     target_tensor = torch.from_numpy(np.expand_dims(target_tensor,axis=0))
-
-
 
     # Teacher forcing: Feed the target as the next input
     output = model(input_tensor, kbs)
@@ -82,7 +80,8 @@ def main(args):
                   decoder_units=200).to(device)
 
     print(model)
-    model_optimizer = optim.SGD(model.parameters(), lr=0.01)
+    model_optimizer = optim.SGD(model.parameters(), lr=0.1)
+    model_optimizer.zero_grad()
     criterion = nn.CrossEntropyLoss()
 
     plot_losses = []
@@ -92,9 +91,12 @@ def main(args):
     start = time.time() 
     n_iters = 1000000
 
-    for iter in range(1, n_iters):
-        input_tensor = training.inputs[iter-1]
-        target_tensor = training.targets[iter-1]
+    iter = 0
+    while iter < n_iters:
+        ind = random.randint(0,len(training.inputs)-1) 
+        input_tensor = training.inputs[ind]
+        target_tensor = training.targets[ind]
+        iter += 1
         loss = train(input_tensor, target_tensor, training.kbs, model, model_optimizer, criterion)
         print_loss_total += loss
         plot_loss_total += loss
