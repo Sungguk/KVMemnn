@@ -16,7 +16,8 @@ batch_size = 100
 if not os.path.exists('./weights'):
     os.makedirs('./weights/')
 
-def train(input_tensors, target_tensors, kbs, model, model_optimizer, criterion):
+def train(input_tensors, target_tensors, kbs, model, model_optimizer, criterion, vocab, kb_vocab):
+    model_optimizer.zero_grad()
     input_tensors = torch.from_numpy(np.expand_dims(input_tensors,axis=0))
     kbs = torch.from_numpy(np.expand_dims(kbs,axis=0))
     target_tensors = torch.from_numpy(np.expand_dims(target_tensors,axis=0))
@@ -27,7 +28,7 @@ def train(input_tensors, target_tensors, kbs, model, model_optimizer, criterion)
     target_tensors = target_tensors[0]
     output = output.permute(0,2,1)
     loss = criterion(output, target_tensors)
-    loss.backward()
+    loss.backward(retain_graph=True)
     model_optimizer.step()
     return loss.item()
 
@@ -49,11 +50,11 @@ def timeSince(since, percent):
 
 def main(args):
     # Dataset functions
-    vocab = Vocabulary('./data/vocabulary.json', padding=args.padding)
     vocab = Vocabulary('./data/vocabulary.json',
                               padding=args.padding)
     kb_vocab=Vocabulary('./data/vocabulary.json',
                               padding=4)
+    model.hidden = model.init_hidden()
     print('Loading datasets.')
     training = Data(args.training_data, vocab,kb_vocab)
     validation = Data(args.validation_data, vocab, kb_vocab)
@@ -69,21 +70,20 @@ def main(args):
     model = KVMMModel(pad_length=args.padding,
                   embedding_size=args.embedding,
                   vocab_size=vocab.size(),
-                  batch_size=100,
+                  batch_size=batch_size,
                   n_chars=vocab.size(),
                   n_labels=vocab.size(),
                   encoder_units=200,
                   decoder_units=200).to(device)
 
     print(model)
-    model_optimizer = optim.SGD(model.parameters(), lr=0.1)
-    model_optimizer.zero_grad()
+    model_optimizer = optim.Adam(model.parameters(), lr=0.01)
     criterion = nn.CrossEntropyLoss()
 
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
-    print_every = 10
+    print_every = 100
     start = time.time() 
     n_iters = 1000000
 
@@ -95,7 +95,7 @@ def main(args):
         input_tensors = training.inputs[ind:ind+batch_size]
         target_tensors = training.targets[ind:ind+batch_size]
         iter += 1
-        loss = train(input_tensors, target_tensors, np.repeat(training.kbs[np.newaxis,:,:],batch_size,axis=0), model, model_optimizer, criterion)
+        loss = train(input_tensors, target_tensors, np.repeat(training.kbs[np.newaxis,:,:],batch_size,axis=0), model, model_optimizer, criterion, vocab, kb_vocab)
         print_loss_total += loss
         plot_loss_total += loss
 

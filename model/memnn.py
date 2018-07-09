@@ -21,7 +21,7 @@ def reshaped(tensor,batch_size,pad_length,seq_length):
     return tensor
 
 class KVMMModel(nn.Module):
-    def __init__(self, pad_length=20,batch_size=1,embedding_size=200,n_chars=20,vocab_size=1000,n_labels=20,encoder_units=256,decoder_units=256):
+    def __init__(self, pad_length=20,batch_size=100,embedding_size=200,n_chars=20,vocab_size=1000,n_labels=20,encoder_units=256,decoder_units=256):
         super(KVMMModel, self).__init__()
         self.pad_length = pad_length
         self.batch_size = batch_size
@@ -86,9 +86,9 @@ class KVMMModel(nn.Module):
         #print "n_dense3",n_dense3.shape
         n_out = torch.add(output, n_dense3) # equation 8
         #print "n_out",n_out.shape
-        n_output = F.softmax(n_out, dim=2) # equation 9
+        #n_output = F.softmax(n_out, dim=2) # equation 9
         #print "n_output",n_output.shape
-        return n_output
+        return n_out
 
     #def initHidden(self):
     #    return torch.zeros(1, 1, self.hidden_size, device=device)
