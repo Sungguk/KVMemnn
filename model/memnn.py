@@ -11,7 +11,7 @@ def reshape(tensor,batch_size,seq_length,embed_size,pad_length):
 
 def reshape2(tensor,batch_size,pad_length,seq_length):
     tensor = tensor[:batch_size, :pad_length,]
-    v = torch.zeros((batch_size, pad_length, 1523))
+    v = torch.zeros((batch_size, pad_length, 1523)).cuda()
     tensor = torch.reshape(tensor, (batch_size, pad_length,431))
     tensor = torch.cat((v, tensor), dim=2)
     return tensor
@@ -49,7 +49,7 @@ class KVMMModel(nn.Module):
 
     def forward(self, input_dialogue, input_keyvalues):
         #input1: Dialogues
-        input_embed1 = self.input_embed_dialogues(input_dialogue)
+        input_embed1 = self.input_embed_dialogues(input_dialogue.cuda())
         #print "input_embed1",input_embed1.shape
         dropout = self.dialogue_dropout(input_embed1)
         #print "dropout",dropout.shape
@@ -68,7 +68,7 @@ class KVMMModel(nn.Module):
         output = self.dialogue_output(torch.cat((encoder[0], n_hidden),dim=2)) #equation 5
     
         # input2: Key value table
-        input_embed2 = self.input_embed_keyvalue(input_keyvalues)
+        input_embed2 = self.input_embed_keyvalue(input_keyvalues.cuda())
         input_embed2 = reshape(input_embed2, self.batch_size, 431, self.embedding_size, self.pad_length)
         #print "input_embed2",input_embed2.shape
         n_dense1 = self.keyvalue_dense1(input_embed2)
