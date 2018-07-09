@@ -11,26 +11,22 @@ from torchsummary import summary
 from random import randint
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+batch_size = 100
 # create a directory if it doesn't already exist
 if not os.path.exists('./weights'):
     os.makedirs('./weights/')
 
-def train(input_tensor, target_tensor, kbs, model, model_optimizer, criterion):
-#    model_hidden = model.initHidden()
-
-
-    input_length = input_tensor.size
-    target_length = target_tensor.size
-
-    input_tensor = torch.from_numpy(np.expand_dims(input_tensor,axis=0))
+def train(input_tensors, target_tensors, kbs, model, model_optimizer, criterion):
+    input_tensors = torch.from_numpy(np.expand_dims(input_tensors,axis=0))
     kbs = torch.from_numpy(np.expand_dims(kbs,axis=0))
-    target_tensor = torch.from_numpy(np.expand_dims(target_tensor,axis=0))
+    target_tensors = torch.from_numpy(np.expand_dims(target_tensors,axis=0))
 
     # Teacher forcing: Feed the target as the next input
-    output = model(input_tensor, kbs)
+    output = model(input_tensors[0], kbs[0])
     output=output.type(torch.FloatTensor)
-    loss = criterion(output[0], target_tensor[0])
+    target_tensors = target_tensors[0]
+    output = output.permute(0,2,1)
+    loss = criterion(output, target_tensors)
     loss.backward()
     model_optimizer.step()
     return loss.item()
@@ -73,7 +69,7 @@ def main(args):
     model = KVMMModel(pad_length=args.padding,
                   embedding_size=args.embedding,
                   vocab_size=vocab.size(),
-                  batch_size=1,
+                  batch_size=100,
                   n_chars=vocab.size(),
                   n_labels=vocab.size(),
                   encoder_units=200,
@@ -94,10 +90,10 @@ def main(args):
     iter = 0
     while iter < n_iters:
         ind = random.randint(0,len(training.inputs)-1) 
-        input_tensor = training.inputs[ind]
-        target_tensor = training.targets[ind]
+        input_tensors = training.inputs[ind:ind+batch_size]
+        target_tensors = training.targets[ind:ind+batch_size]
         iter += 1
-        loss = train(input_tensor, target_tensor, training.kbs, model, model_optimizer, criterion)
+        loss = train(input_tensors, target_tensors, np.repeat(training.kbs[np.newaxis,:,:],batch_size,axis=0), model, model_optimizer, criterion)
         print_loss_total += loss
         plot_loss_total += loss
 
