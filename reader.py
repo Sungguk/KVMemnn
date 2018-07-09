@@ -115,7 +115,7 @@ class Data(object):
         with io.open(self.file_name, 'r',encoding='utf-8') as f:
             reader = csv.reader(f)
             for row in reader:
-                print(row)
+                #print(row)
                 #print(row[1],row[2])
                 self.inputs.append(row[0])
                 self.targets.append(row[1])

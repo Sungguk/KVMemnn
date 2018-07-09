@@ -31,7 +31,7 @@ class KVMMModel(nn.Module):
         self.n_labels =  n_labels
         self.encoder_units = encoder_units
         self.decoder_units = decoder_units
-        print "vocabsize",vocab_size
+        print("vocabsize",vocab_size)
       
         self.input_embed_dialogues = nn.Embedding(self.vocab_size, self.embedding_size, self.pad_length)
         self.dialogue_dropout = nn.Dropout(0.2)
