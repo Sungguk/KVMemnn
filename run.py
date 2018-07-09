@@ -90,6 +90,8 @@ def main(args):
     iter = 0
     while iter < n_iters:
         ind = random.randint(0,len(training.inputs)-1) 
+        if (ind+batch_size >= len(training.inputs)):
+            continue
         input_tensors = training.inputs[ind:ind+batch_size]
         target_tensors = training.targets[ind:ind+batch_size]
         iter += 1
