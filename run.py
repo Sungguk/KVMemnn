@@ -4,6 +4,7 @@
 """
 import os,sys,time,argparse,torch,random,math
 import numpy as np
+import torch
 from torch import optim,nn
 from reader import Data,Vocabulary
 from model.memnn import KVMMModel
@@ -28,7 +29,7 @@ def train(input_tensors, target_tensors, kbs, model, model_optimizer, criterion,
     target_tensors = target_tensors[0]
     output = output.permute(0,2,1)
     loss = criterion(output, target_tensors)
-    loss.backward(retain_graph=True)
+    loss.backward()
     model_optimizer.step()
     return loss.item()
 
@@ -48,13 +49,27 @@ def timeSince(since, percent):
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
 
+def evaluate(model, validation_inputs, validation_targets, kbs):
+    with torch.no_grad():
+        input_tensors = torch.from_numpy(np.expand_dims(validation_inputs,axis=0))
+        target_tensors = torch.from_numpy(np.expand_dims(validation_targets,axis=0))
+        kbs = torch.from_numpy(np.expand_dims(kbs,axis=0))
+        model.batch_size = input_tensors[0].shape[0]
+        output = model(input_tensors[0], kbs[0])
+        _,outputmax = output.max(2)
+        target_tensors = target_tensors[0]
+        outputmaxnp = outputmax.cpu().numpy()
+        target_tensorsnp = target_tensors.cpu().numpy()
+        accuracy = float(np.sum(outputmaxnp == target_tensorsnp))/(input_tensors[0].shape[0] * input_tensors[0].shape[1])
+        model.batch_size = batch_size
+        return accuracy
+
 def main(args):
     # Dataset functions
     vocab = Vocabulary('./data/vocabulary.json',
                               padding=args.padding)
     kb_vocab=Vocabulary('./data/vocabulary.json',
                               padding=4)
-    model.hidden = model.init_hidden()
     print('Loading datasets.')
     training = Data(args.training_data, vocab,kb_vocab)
     validation = Data(args.validation_data, vocab, kb_vocab)
@@ -100,10 +115,12 @@ def main(args):
         plot_loss_total += loss
 
         if iter % print_every == 0:
+            accuracy = evaluate(model, validation.inputs, validation.targets, np.repeat(training.kbs[np.newaxis,:,:],len(validation.inputs),axis=0))
             print_loss_avg = print_loss_total / print_every
             print_loss_total = 0
-            print('%s (%d %d%%) %.4f' % (timeSince(start, iter / n_iters),
-                                         iter, iter / n_iters * 100, print_loss_avg))
+            print('%s (%d %d%%) %.4f - accuracy %f' % (timeSince(start, iter / n_iters),
+                                         iter, iter / n_iters * 100, print_loss_avg, accuracy))
+            torch.save(model.state_dict(), 'model.save')
 
 
 if __name__ == '__main__':
