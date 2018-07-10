@@ -1,4 +1,4 @@
-# Key value memory networks for task oriented dialogue
+# Pytorch: Key value memory networks for task oriented dialogue
 
 The code here implements the one described in the paper Key-Value Retrieval Networks for Task-Oriented Dialogue <https://arxiv.org/pdf/1705.05414.pdf>
 
@@ -9,24 +9,21 @@ Thanks to the authors for making the dataset public.
 ### Installation
 Install the dependencies
 ```
-keras
-pandas
-numpy
-Jupyter notebook
+numpy==1.14.5
+pandas==0.23.3
+pkg-resources==0.0.0
+python-dateutil==2.7.3
+pytz==2018.5
+six==1.11.0
+torch==0.4.0
 ```
 To Run the code Just use
 ```
 python run.py
 ```
-I have uploaded the weights file you can just run the file to get output
 ```
 python examples.py
 ```
-
-### Todos
-
- - To work on other datasets to see how the model performs
-
 License
 ----
 
