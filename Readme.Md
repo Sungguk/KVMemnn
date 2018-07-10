@@ -2,6 +2,8 @@
 
 The code here implements the one described in the paper Key-Value Retrieval Networks for Task-Oriented Dialogue <https://arxiv.org/pdf/1705.05414.pdf>
 
+You need a machine with a GPU to run this code.
+
 Dataset
 Thanks to the authors for making the dataset public.
 <https://nlp.stanford.edu/blog/a-new-multi-turn-multi-domain-task-oriented-dialogue-dataset/>
