@@ -119,7 +119,7 @@ def main(args):
             print_loss_total = 0
             print('%s (%d %d%%) %.4f - accuracy %f' % (timeSince(start, iter / n_iters),
                                          iter, iter / n_iters * 100, print_loss_avg, accuracy))
-            torch.save(model.state_dict(), 'model.save')
+            torch.save(model.state_dict(), 'model_weights_nkbb.hdf5')
 
 
 if __name__ == '__main__':
