@@ -8,7 +8,6 @@ import torch
 from torch import optim,nn
 from reader import Data,Vocabulary
 from model.memnn import KVMMModel
-from torchsummary import summary
 from random import randint
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

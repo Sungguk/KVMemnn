@@ -5,7 +5,6 @@ import operator
 import io
 import numpy as np
 import pandas as pd
-from nltk.tokenize import word_tokenize
 
 
 random.seed(1984)
@@ -13,6 +12,10 @@ random.seed(1984)
 INPUT_PADDING = 50
 OUTPUT_PADDING = 100
 
+
+def to_categorical(y, num_classes):
+    """ 1-hot encodes a tensor """
+    return np.eye(num_classes, dtype='uint8')[y]
 
 class Vocabulary(object):
 
@@ -142,7 +145,7 @@ class Data(object):
             try:
                 batch_ids = random.sample(instance_id, batch_size)
                 targets=np.array(self.targets[batch_ids])
-                targets = np.array(list(map(lambda x: np.eye(self.output_vocabulary.size(), dtype='uint8')[x],targets)))
+                targets = np.array(list(map(lambda x: to_categorical(x,num_classes=self.output_vocabulary.size()),targets)))
                 yield ([np.array(self.inputs[batch_ids], dtype=int),np.repeat(self.kbs[np.newaxis,:,:],batch_size,axis=0)],np.array(targets))
             except Exception as e:
                 print('EXCEPTION OMG')
