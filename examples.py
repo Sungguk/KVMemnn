@@ -1,17 +1,11 @@
-import numpy as np
-import keras
-from keras.models import Model, load_model
 from reader import Data, Vocabulary
 import pandas as pd
-import os
+import os, sys
 import argparse
+import torch
 import numpy as np
-import os
-import keras
-from keras.models import Model
-from keras.callbacks import ModelCheckpoint
 from reader import Data,Vocabulary
-from model.memnn import memnn
+from model.memnn import KVMMModel
 from math import log
 from numpy import array
 from numpy import argmax
@@ -19,6 +13,8 @@ outdf = {'input': [], 'output': []}
 EXAMPLES = ["find starbucks <eos>", "What will the weather in Fresno be in the next 48 hours <eos>",
             "give me directions to the closest grocery store <eos>", "What is the address? <eos>",
             "Remind me to take pills", "tomorrow in inglewood will it be windy?"]
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # beam search
 def beam_search_decoder(data, k):
@@ -43,22 +39,13 @@ def beam_search_decoder(data, k):
 def run_example(model, kbs,vocabulary, text):
     print(text)
     encoded = vocabulary.string_to_int(text)
-    #print("encoded is", encoded)
-    prediction = model.predict([np.array([encoded]), kbs])
-    pred = np.argmax(prediction[0], axis=-1)
-    print(pred.shape)
-    prediction=prediction.reshape((20,1954))
-    result=beam_search_decoder(prediction,5)
+    input_tensors = torch.from_numpy(np.expand_dims(encoded,axis=0))
+    kbs = torch.from_numpy(np.expand_dims(kbs,axis=0))
+    prediction = model(input_tensors, kbs[0])
+    result=beam_search_decoder(prediction[0].detach().cpu().numpy(),5)
     data=[]
     for seq in result:
-        #print(seq)
-        #print(np.array(seq[0]).shape)
-        #print(' '.join(vocabulary.int_to_string(np.array(seq[0]))))
         data.append(' '.join(vocabulary.int_to_string(np.array(seq[0]))))
-    #print("shape of prediction is",type(prediction), prediction.shape)
-
-    #print(prediction, type(prediction), prediction.shape)
-    #print(prediction.shape, vocabulary.int_to_string(prediction))
     return data
 
 
@@ -83,17 +70,16 @@ if __name__ == "__main__":
 
     kb_vocabulary = Vocabulary('data/vocabulary.json',padding = 4)
 
-    model = memnn(pad_length=20,
+    model = KVMMModel(pad_length=20,
                   embedding_size=200,
                   batch_size=1,
                   vocab_size=vocab.size(),
                   n_chars=vocab.size(),
                   n_labels=vocab.size(),
-                  embedding_learnable=True,
                   encoder_units=200,
-                  decoder_units=200)
+                  decoder_units=200).to(device)
     weights_file = "model_weights_nkbb.hdf5"
-    model.load_weights(weights_file, by_name=True)
+    model.load_state_dict(torch.load(weights_file))
 
     kbfile = "data/normalised_kbtuples.csv"
     df = pd.read_csv(kbfile)
