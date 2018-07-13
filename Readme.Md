@@ -19,13 +19,19 @@ pytz==2018.5
 six==1.11.0
 torch==0.4.0
 ```
-To Run the code Just use
+To Run the training  use
 ```
 python run.py
 ```
+
+To run the examples once training is done
+
 ```
 python examples.py
 ```
+
+You could also directly download a pre-trained model file from <https://drive.google.com/file/d/1GzotDHN9uiM-15Wt-g-hBYJMi4DqPSCg/> instead of running the training.
+
 License
 ----
 
