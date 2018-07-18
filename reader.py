@@ -146,11 +146,11 @@ class Data(object):
                 batch_ids = random.sample(instance_id, batch_size)
                 targets=np.array(self.targets[batch_ids])
                 targets = np.array(list(map(lambda x: to_categorical(x,num_classes=self.output_vocabulary.size()),targets)))
-                yield ([np.array(self.inputs[batch_ids], dtype=int),np.repeat(self.kbs[np.newaxis,:,:],batch_size,axis=0)],np.array(targets))
+                return ([np.array(self.inputs[batch_ids], dtype=int),np.repeat(self.kbs[np.newaxis,:,:],batch_size,axis=0)],np.array(targets))
             except Exception as e:
                 print('EXCEPTION OMG')
                 print(e)
-                yield None, None,None
+                return None, None,None
 
 if __name__ == '__main__':
     vocab = Vocabulary('./data/vocabulary.json', padding=20)

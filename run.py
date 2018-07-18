@@ -27,7 +27,8 @@ def train(input_tensors, target_tensors, kbs, model, model_optimizer, criterion,
     output=output.type(torch.FloatTensor)
     target_tensors = target_tensors[0]
     output = output.permute(0,2,1)
-    loss = criterion(output, target_tensors)
+    _,target_maxvals = target_tensors.max(2)
+    loss = criterion(output, target_maxvals)
     loss.backward()
     model_optimizer.step()
     return loss.item()
@@ -103,18 +104,21 @@ def main(args):
 
     iter = 0
     while iter < n_iters:
-        ind = random.randint(0,len(training.inputs)-1) 
-        if (ind+batch_size >= len(training.inputs)):
-            continue
-        input_tensors = training.inputs[ind:ind+batch_size]
-        target_tensors = training.targets[ind:ind+batch_size]
+        training_data = training.generator(batch_size)
+        input_tensors = training_data[0][0]
+        target_tensors = training_data[1]
+        kbs = training_data[0][1]
         iter += 1
-        loss = train(input_tensors, target_tensors, np.repeat(training.kbs[np.newaxis,:,:],batch_size,axis=0), model, model_optimizer, criterion, vocab, kb_vocab)
+        loss = train(input_tensors, target_tensors, kbs, model, model_optimizer, criterion, vocab, kb_vocab)
         print_loss_total += loss
         plot_loss_total += loss
-
         if iter % print_every == 0:
-            accuracy = evaluate(model, validation.inputs, validation.targets, np.repeat(training.kbs[np.newaxis,:,:],len(validation.inputs),axis=0))
+            validation_data = validation.generator(batch_size)
+            validation_inputs = validation_data[0][0]
+            validation_kbs = validation_data[0][1]
+            validation_targets = validation_data[1]
+            print("vi = %s,  vt = %s, vk = %s",validation_inputs.shape,validation_targets.shape,validation_kbs.shape)
+            accuracy = evaluate(model, validation_inputs, validation_targets, validation_kbs)
             print_loss_avg = print_loss_total / print_every
             print_loss_total = 0
             print('%s (%d %d%%) %.4f - accuracy %f' % (timeSince(start, iter / n_iters),
