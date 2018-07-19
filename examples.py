@@ -9,11 +9,6 @@ from model.memnn import KVMMModel
 from math import log
 from numpy import array
 from numpy import argmax
-outdf = {'input': [], 'output': []}
-EXAMPLES = ["find starbucks <eos>", "What will the weather in Fresno be in the next 48 hours <eos>",
-            "give me directions to the closest grocery store <eos>", "What is the address? <eos>",
-            "Remind me to take pills", "tomorrow in inglewood will it be windy?"]
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # beam search
@@ -36,28 +31,32 @@ def beam_search_decoder(data, k):
         # select k best
         sequences = ordered[:k]
     return sequences
-def run_example(model, kbs,vocabulary, text):
-    print(text)
+def run_example(model, kbs,vocabulary, text, groundtruth):
     encoded = vocabulary.string_to_int(text)
     input_tensors = torch.from_numpy(np.expand_dims(encoded,axis=0))
     kbs = torch.from_numpy(np.expand_dims(kbs,axis=0))
     prediction = model(input_tensors, kbs[0])
+    print(prediction[0].shape)
     result=beam_search_decoder(prediction[0].detach().cpu().numpy(),5)
     data=[]
     for seq in result:
         data.append(' '.join(vocabulary.int_to_string(np.array(seq[0]))))
+    print('input:',text)
+    print('groundtruth:',groundtruth)
+    unpaddata = []
+    for sentence in data:
+        unpaddata.append(sentence.replace('<pad> ',''))
+    print('prediction:', ' '.join(vocabulary.int_to_string(prediction[0].max(1)[1].detach().cpu().numpy())))
     return data
 
 
-def run_examples(model, kbs, vocabulary, examples=EXAMPLES):
+def run_examples(model, kbs, vocabulary, examples, groundtruths):
     predicted = []
     input = []
-    for example in examples:
+    for example,groundtruth in zip(examples,groundtruths):
         print('~~~~~')
         input.append(example)
-        predicted.append(run_example(model, kbs, vocabulary, example))
-        outdf['input'].append(example)
-        outdf['output'].append(predicted[-1])
+        predicted.append(run_example(model, kbs, vocabulary, example, groundtruth))
     return predicted
 
 
@@ -78,7 +77,7 @@ if __name__ == "__main__":
                   n_labels=vocab.size(),
                   encoder_units=200,
                   decoder_units=200).to(device)
-    weights_file = "model_weights_nkbb.hdf5"
+    weights_file = "model_weights.pytorch"
     model.load_state_dict(torch.load(weights_file))
 
     kbfile = "data/normalised_kbtuples.csv"
@@ -87,7 +86,7 @@ if __name__ == "__main__":
     # print(kbs[:3])
     kbs = np.array(list(map(kb_vocabulary.string_to_int, kbs)))
     kbs = np.repeat(kbs[np.newaxis, :, :], 1, axis=0)
-    data = run_examples(model, kbs,vocab, inputs)
+    data = run_examples(model, kbs,vocab, inputs, outputs)
     df=pd.DataFrame(columns=["inputs","outputs","prediction"])
     d = {'outputs':[],'inputs':[],'u1': [],'u2':[],'u3':[],'u4':[],'u5':[]}
     for i, o, p in zip(inputs, outputs, data):

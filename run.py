@@ -58,8 +58,9 @@ def evaluate(model, validation_inputs, validation_targets, kbs):
         output = model(input_tensors[0], kbs[0])
         _,outputmax = output.max(2)
         target_tensors = target_tensors[0]
+        _,targetmax = target_tensors.max(2)
         outputmaxnp = outputmax.cpu().numpy()
-        target_tensorsnp = target_tensors.cpu().numpy()
+        target_tensorsnp = targetmax.cpu().numpy()
         accuracy = float(np.sum(outputmaxnp == target_tensorsnp))/(input_tensors[0].shape[0] * input_tensors[0].shape[1])
         model.batch_size = batch_size
         return accuracy
@@ -92,7 +93,7 @@ def main(args):
                   decoder_units=200).to(device)
 
     print(model)
-    model_optimizer = optim.Adam(model.parameters(), lr=0.01)
+    model_optimizer = optim.Adam(model.parameters(), lr=0.001)
     criterion = nn.CrossEntropyLoss()
 
     plot_losses = []
@@ -100,7 +101,7 @@ def main(args):
     plot_loss_total = 0  # Reset every plot_every
     print_every = 100
     start = time.time() 
-    n_iters = 1000000
+    n_iters = 500000
 
     iter = 0
     while iter < n_iters:
@@ -117,13 +118,12 @@ def main(args):
             validation_inputs = validation_data[0][0]
             validation_kbs = validation_data[0][1]
             validation_targets = validation_data[1]
-            print("vi = %s,  vt = %s, vk = %s",validation_inputs.shape,validation_targets.shape,validation_kbs.shape)
             accuracy = evaluate(model, validation_inputs, validation_targets, validation_kbs)
             print_loss_avg = print_loss_total / print_every
             print_loss_total = 0
-            print('%s (%d %d%%) %.4f - accuracy %f' % (timeSince(start, iter / n_iters),
+            print('%s (%d %d%%) %.4f - val_accuracy %f' % (timeSince(start, iter / n_iters),
                                          iter, iter / n_iters * 100, print_loss_avg, accuracy))
-            torch.save(model.state_dict(), 'model_weights_nkbb.hdf5')
+            torch.save(model.state_dict(), 'model_weights.pytorch')
 
 
 if __name__ == '__main__':
