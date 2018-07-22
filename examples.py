@@ -3,6 +3,7 @@ import pandas as pd
 import os, sys
 import argparse
 import torch
+import torch.nn.functional as F
 import numpy as np
 from reader import Data,Vocabulary
 from model.memnn import KVMMModel
@@ -36,7 +37,9 @@ def run_example(model, kbs,vocabulary, text, groundtruth):
     input_tensors = torch.from_numpy(np.expand_dims(encoded,axis=0))
     kbs = torch.from_numpy(np.expand_dims(kbs,axis=0))
     prediction = model(input_tensors, kbs[0])
-    print(prediction[0].shape)
+    prediction = F.softmax(prediction, dim=2) 
+    #print(prediction[0])
+    #sys.exit(1)
     result=beam_search_decoder(prediction[0].detach().cpu().numpy(),5)
     data=[]
     for seq in result:
@@ -46,7 +49,8 @@ def run_example(model, kbs,vocabulary, text, groundtruth):
     unpaddata = []
     for sentence in data:
         unpaddata.append(sentence.replace('<pad> ',''))
-    print('prediction:', ' '.join(vocabulary.int_to_string(prediction[0].max(1)[1].detach().cpu().numpy())))
+    print('symbol prediction:', ' '.join(vocabulary.int_to_string(prediction[0].max(1)[1].detach().cpu().numpy())))
+    print('beam prediction:',unpaddata)
     return data
 
 
