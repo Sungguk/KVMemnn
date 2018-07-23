@@ -88,7 +88,7 @@ class KVMMModel(nn.Module):
         n_dense1 = self.keyvalue_dense1(input_embed2)#apply tanh on after applying linear transformation on input_embed2 
         n_dense1 = reshaped(n_dense1, self.batch_size,  self.pad_length, self.decoder_units)
         decoder = reshaped(decoder[0], self.batch_size, self.pad_length, self.decoder_units)
-        n_dense2 = self.keyvalue_dense2(decoder#apply tanh on after applying linear transformation on decoder
+        n_dense2 = self.keyvalue_dense2(decoder)#apply tanh on after applying linear transformation on decoder
         n_dense3 = self.keyvalue_dense3(torch.cat((n_dense1, n_dense2), dim=1))#apply tanh on after applying linear transformation on cascating result of n_dense1 n_dense1 and n_dense2 
         
 		#Implementaiton of equation 8
