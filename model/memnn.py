@@ -83,8 +83,8 @@ class KVMMModel(nn.Module):
         else:
             input_embed2 = self.input_embed_keyvalue(input_keyvalues)
 
-		#Implementation of equation 7
-		input_embed2 = reshape(input_embed2, self.batch_size, 431, self.embedding_size, self.pad_length)
+        #Implementation of equation 7
+        input_embed2 = reshape(input_embed2, self.batch_size, 431, self.embedding_size, self.pad_length)
         n_dense1 = self.keyvalue_dense1(input_embed2)#apply tanh on after applying linear transformation on input_embed2 
         n_dense1 = reshaped(n_dense1, self.batch_size,  self.pad_length, self.decoder_units)
         decoder = reshaped(decoder[0], self.batch_size, self.pad_length, self.decoder_units)
