@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+#Addiing support for CUDA tensor types (utilize GPUs for computation) if not available use  CPU tensors.
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def reshape(tensor,batch_size,seq_length,embed_size,pad_length):
@@ -23,8 +25,10 @@ def reshaped(tensor,batch_size,pad_length,seq_length):
     tensor = torch.reshape(tensor, (batch_size,pad_length,seq_length))
     return tensor
 
+#Key-Value Memory Network
 class KVMMModel(nn.Module):
     def __init__(self, pad_length=20,batch_size=100,embedding_size=200,n_chars=20,vocab_size=1000,n_labels=20,encoder_units=256,decoder_units=256):
+        #Parameter Initialization 
         super(KVMMModel, self).__init__()
         self.pad_length = pad_length
         self.batch_size = batch_size
@@ -44,6 +48,7 @@ class KVMMModel(nn.Module):
         self.dense3_dialogue = nn.Sequential(nn.Linear(200,200),nn.Tanh())
         self.dialogue_output = nn.Linear(400,1954)
 
+
         self.input_embed_keyvalue = nn.Embedding(self.vocab_size, self.embedding_size,431)
         self.keyvalue_dense1 = nn.Sequential(nn.Linear(431,20),nn.Tanh())
         self.keyvalue_dense2 = nn.Sequential(nn.Linear(200,200),nn.Tanh())
@@ -62,15 +67,15 @@ class KVMMModel(nn.Module):
         
         decoder = self.decoder_dialogue(encoder[0])
         
-        dense1 = self.dense1_dialogue(encoder[0])
+        dense1 = self.dense1_dialogue(encoder[0])#equation 1 (refer to https://arxiv.org/pdf/1705.05414.pdf)
         
         dense2 = self.dense2_dialogue(decoder[0])
-        
+      
         dense3 = self.dense3_dialogue(torch.add(dense1, dense2)) #equation 2 (refer to https://arxiv.org/pdf/1705.05414.pdf)
-        
-        attention = F.softmax(dense3, dim=2) #equation 3
-        n_hidden = torch.mul(attention, encoder[0]) #equation 4  
-        output = self.dialogue_output(torch.cat((encoder[0], n_hidden),dim=2)) #equation 5
+       
+        attention = F.softmax(dense3, dim=2) #equation 3:Calculating attention (refer to https://arxiv.org/pdf/1705.05414.pdf)
+        n_hidden = torch.mul(attention, encoder[0]) #equation 4: multiplication of attention and hidden state of encoder (refer to https://arxiv.org/pdf/1705.05414.pdf)
+        output = self.dialogue_output(torch.cat((encoder[0], n_hidden),dim=2)) #equation 5: output token (refer to https://arxiv.org/pdf/1705.05414.pdf)
     
         # input2: Key value table
         if device == torch.device("cuda"):
@@ -78,20 +83,21 @@ class KVMMModel(nn.Module):
         else:
             input_embed2 = self.input_embed_keyvalue(input_keyvalues)
         input_embed2 = reshape(input_embed2, self.batch_size, 431, self.embedding_size, self.pad_length)
-        
+       
         n_dense1 = self.keyvalue_dense1(input_embed2)
-        
+      
         n_dense1 = reshaped(n_dense1, self.batch_size,  self.pad_length, self.decoder_units)
-        
+       
         decoder = reshaped(decoder[0], self.batch_size, self.pad_length, self.decoder_units)
-        
+       
         n_dense2 = self.keyvalue_dense2(decoder)
         
-        n_dense3 = self.keyvalue_dense3(torch.cat((n_dense1, n_dense2), dim=1)) #equation 7
+        n_dense3 = self.keyvalue_dense3(torch.cat((n_dense1, n_dense2), dim=1)) #equation 7 (refer to https://arxiv.org/pdf/1705.05414.pdf)
         
         n_dense3 = reshape2(n_dense3, self.batch_size,  self.pad_length, 431)
-        n_out = torch.add(output, n_dense3) # equation 8
+       
+        n_out = torch.add(output, n_dense3) # equation 8: also taking value embeddings into account (refer to https://arxiv.org/pdf/1705.05414.pdf)
         
         return n_out
 
-   
+  

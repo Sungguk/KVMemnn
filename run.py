@@ -15,7 +15,7 @@ batch_size = 100
 # create a directory if it doesn't already exist
 if not os.path.exists('./weights'):
     os.makedirs('./weights/')
-
+#Training function for the model
 def train(input_tensors, target_tensors, kbs, model, model_optimizer, criterion, vocab, kb_vocab):
     model_optimizer.zero_grad()
     input_tensors = torch.from_numpy(np.expand_dims(input_tensors,axis=0))
@@ -48,7 +48,7 @@ def timeSince(since, percent):
     rs = es - s
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
-
+#Training evaluation function
 def evaluate(model, validation_inputs, validation_targets, kbs):
     with torch.no_grad():
         input_tensors = torch.from_numpy(np.expand_dims(validation_inputs,axis=0))
@@ -93,7 +93,9 @@ def main(args):
                   decoder_units=200).to(device)
 
     print(model)
+    #Training using Adam Optimizer 
     model_optimizer = optim.Adam(model.parameters(), lr=0.001)
+    #Training using cross-entropy loss
     criterion = nn.CrossEntropyLoss()
 
     plot_losses = []
