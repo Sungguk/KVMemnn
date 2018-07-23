@@ -41,8 +41,8 @@ class KVMMModel(nn.Module):
         self.encoder_units = encoder_units
         self.decoder_units = decoder_units
       
-	    #Initialize the models
-		#For dialogue input
+        #Initialize the models
+        #For dialogue input
         self.input_embed_dialogues = nn.Embedding(self.vocab_size, self.embedding_size, self.pad_length)
         self.dialogue_dropout = nn.Dropout(0.2)
         self.encoder_dialogue = nn.LSTM(self.embedding_size, self.embedding_size, batch_first=True)
@@ -68,8 +68,8 @@ class KVMMModel(nn.Module):
         decoder = self.decoder_dialogue(encoder[0])
 
         #All equations are refered to https://arxiv.org/pdf/1705.05414.pdf
-		#Implementation of equation 2
-		dense1 = self.dense1_dialogue(encoder[0])#apply tanh on after applying linear transformation on encoder output 
+        #Implementation of equation 2
+        dense1 = self.dense1_dialogue(encoder[0])#apply tanh on after applying linear transformation on encoder output 
         dense2 = self.dense2_dialogue(decoder[0])#apply tanh on after applying linear transformation on decoder output 
         dense3 = self.dense3_dialogue(torch.add(dense1, dense2))#combine the output from dens1 and dense2, then applying linear trnsformation and tanh funtion.  
 		
@@ -91,8 +91,8 @@ class KVMMModel(nn.Module):
         n_dense2 = self.keyvalue_dense2(decoder)#apply tanh on after applying linear transformation on decoder
         n_dense3 = self.keyvalue_dense3(torch.cat((n_dense1, n_dense2), dim=1))#apply tanh on after applying linear transformation on cascating result of n_dense1 n_dense1 and n_dense2 
         
-		#Implementaiton of equation 8
-		n_dense3 = reshape2(n_dense3, self.batch_size,  self.pad_length, 431)
+	#Implementaiton of equation 8
+	n_dense3 = reshape2(n_dense3, self.batch_size,  self.pad_length, 431)
         n_out = torch.add(output, n_dense3)#Summerize the n_dense3 with the output from the dialogue part. 
         
         return n_out
