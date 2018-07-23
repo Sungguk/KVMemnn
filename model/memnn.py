@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+#Addiing support for CUDA tensor types (utilize GPUs for computation) if not available use  CPU tensors.
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def reshape(tensor,batch_size,seq_length,embed_size,pad_length):
@@ -23,10 +25,13 @@ def reshaped(tensor,batch_size,pad_length,seq_length):
     tensor = torch.reshape(tensor, (batch_size,pad_length,seq_length))
     return tensor
 
+#Key-Value Memory Network
 class KVMMModel(nn.Module):
     def __init__(self, pad_length=20,batch_size=100,embedding_size=200,n_chars=20,vocab_size=1000,n_labels=20,encoder_units=256,decoder_units=256):
+
         #Initialize variables
 		super(KVMMModel, self).__init__()
+
         self.pad_length = pad_length
         self.batch_size = batch_size
         self.embedding_size = embedding_size
@@ -46,8 +51,7 @@ class KVMMModel(nn.Module):
         self.dense2_dialogue = nn.Sequential(nn.Linear(200,200),nn.Tanh())
         self.dense3_dialogue = nn.Sequential(nn.Linear(200,200),nn.Tanh())
         self.dialogue_output = nn.Linear(400,1954)
-		
-		#For key_value table input 
+
         self.input_embed_keyvalue = nn.Embedding(self.vocab_size, self.embedding_size,431)
         self.keyvalue_dense1 = nn.Sequential(nn.Linear(431,20),nn.Tanh())
         self.keyvalue_dense2 = nn.Sequential(nn.Linear(200,200),nn.Tanh())
@@ -62,6 +66,7 @@ class KVMMModel(nn.Module):
         dropout = self.dialogue_dropout(input_embed1)
         encoder = self.encoder_dialogue(dropout)
         decoder = self.decoder_dialogue(encoder[0])
+
         #All equations are refered to https://arxiv.org/pdf/1705.05414.pdf
 		#Implementation of equation 2
 		dense1 = self.dense1_dialogue(encoder[0])#apply tanh on after applying linear transformation on encoder output 
@@ -77,7 +82,7 @@ class KVMMModel(nn.Module):
             input_embed2 = self.input_embed_keyvalue(input_keyvalues.cuda())
         else:
             input_embed2 = self.input_embed_keyvalue(input_keyvalues)
-        
+
 		#Implementation of equation 7
 		input_embed2 = reshape(input_embed2, self.batch_size, 431, self.embedding_size, self.pad_length)
         n_dense1 = self.keyvalue_dense1(input_embed2)#apply tanh on after applying linear transformation on input_embed2 
@@ -92,4 +97,4 @@ class KVMMModel(nn.Module):
         
         return n_out
 
-   
+  
