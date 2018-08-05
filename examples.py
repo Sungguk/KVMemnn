@@ -13,25 +13,6 @@ from numpy import argmax
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # beam search
-def beam_search_decoder(data, k):
-    sequences = [[list(), 1.0]]
-    # walk over each step in sequence
-    for row in data:
-        all_candidates = list()
-        # expand each current candidate
-        for i in range(len(sequences)):
-            seq, score = sequences[i]
-            for j in range(len(row)):
-                #print(row[j])
-                if row[j]<=0:
-                    row[j]=0.000000000000000000001
-                candidate = [seq + [j], score * -log(row[j])]
-                all_candidates.append(candidate)
-        # order all candidates by score
-        ordered = sorted(all_candidates, key=lambda tup:tup[1])
-        # select k best
-        sequences = ordered[:k]
-    return sequences
 def run_example(model, kbs,vocabulary, text, groundtruth):
     encoded = vocabulary.string_to_int(text)
     input_tensors = torch.from_numpy(np.expand_dims(encoded,axis=0))
@@ -40,18 +21,11 @@ def run_example(model, kbs,vocabulary, text, groundtruth):
     prediction = F.softmax(prediction, dim=2) 
     #print(prediction[0])
     #sys.exit(1)
-    result=beam_search_decoder(prediction[0].detach().cpu().numpy(),5)
-    data=[]
-    for seq in result:
-        data.append(' '.join(vocabulary.int_to_string(np.array(seq[0]))))
     print('input:',text)
     print('groundtruth:',groundtruth)
-    unpaddata = []
-    for sentence in data:
-        unpaddata.append(sentence.replace('<pad> ',''))
     print('symbol prediction:', ' '.join(vocabulary.int_to_string(prediction[0].max(1)[1].detach().cpu().numpy())))
-    print('beam prediction:',unpaddata)
-    return data
+    output = ' '.join(vocabulary.int_to_string(prediction[0].max(1)[1].detach().cpu().numpy()))
+    return output
 
 
 def run_examples(model, kbs, vocabulary, examples, groundtruths):
@@ -92,12 +66,11 @@ if __name__ == "__main__":
     kbs = np.repeat(kbs[np.newaxis, :, :], 1, axis=0)
     data = run_examples(model, kbs,vocab, inputs, outputs)
     df=pd.DataFrame(columns=["inputs","outputs","prediction"])
-    d = {'outputs':[],'inputs':[],'u1': [],'u2':[],'u3':[],'u4':[],'u5':[]}
+    d = {'outputs':[],'inputs':[],'predictions': []}
     for i, o, p in zip(inputs, outputs, data):
         d["outputs"].append(str(o))
         d["inputs"].append(str(i))
-        for i,preds in enumerate(p):
-            d["u"+str(i+1)].append(str(preds))
+        d["predictions"].append(str(p))
     df = pd.DataFrame(d)
     df.to_csv("output_kb.csv")
     # print(outputs)
