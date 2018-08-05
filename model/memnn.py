@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+#Addiing support for CUDA tensor types (utilize GPUs for computation) if not available use  CPU tensors.
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def reshape(tensor,batch_size,seq_length,embed_size,pad_length):
@@ -23,9 +25,13 @@ def reshaped(tensor,batch_size,pad_length,seq_length):
     tensor = torch.reshape(tensor, (batch_size,pad_length,seq_length))
     return tensor
 
+#Key-Value Memory Network
 class KVMMModel(nn.Module):
     def __init__(self, pad_length=20,batch_size=100,embedding_size=200,n_chars=20,vocab_size=1000,n_labels=20,encoder_units=256,decoder_units=256):
-        super(KVMMModel, self).__init__()
+
+        #Initialize variables
+		super(KVMMModel, self).__init__()
+
         self.pad_length = pad_length
         self.batch_size = batch_size
         self.embedding_size = embedding_size
@@ -35,6 +41,8 @@ class KVMMModel(nn.Module):
         self.encoder_units = encoder_units
         self.decoder_units = decoder_units
       
+        #Initialize the models
+        #For dialogue input
         self.input_embed_dialogues = nn.Embedding(self.vocab_size, self.embedding_size, self.pad_length)
         self.dialogue_dropout = nn.Dropout(0.2)
         self.encoder_dialogue = nn.LSTM(self.embedding_size, self.embedding_size, batch_first=True)
@@ -55,48 +63,38 @@ class KVMMModel(nn.Module):
             input_embed1 = self.input_embed_dialogues(input_dialogue.cuda())
         else:
             input_embed1 = self.input_embed_dialogues(input_dialogue)
-        #print "input_embed1",input_embed1.shape
         dropout = self.dialogue_dropout(input_embed1)
-        #print "dropout",dropout.shape
         encoder = self.encoder_dialogue(dropout)
-        #print "encoder",encoder[0].shape
         decoder = self.decoder_dialogue(encoder[0])
-        #print "decoder",decoder[0].shape
-        dense1 = self.dense1_dialogue(encoder[0])
-        #print "dense1",dense1.shape
-        dense2 = self.dense2_dialogue(decoder[0])
-        #print "dense2",dense2.shape
-        dense3 = self.dense3_dialogue(torch.add(dense1, dense2)) #equation 2 (refer to https://arxiv.org/pdf/1705.05414.pdf)
-        #print "dense3",dense3.shape
-        attention = F.softmax(dense3, dim=2) #equation 3
-        n_hidden = torch.mul(attention, encoder[0]) #equation 4  
-        output = self.dialogue_output(torch.cat((encoder[0], n_hidden),dim=2)) #equation 5
+
+        #All equations are refered to https://arxiv.org/pdf/1705.05414.pdf
+        #Implementation of equation 2
+        dense1 = self.dense1_dialogue(encoder[0])#apply tanh on after applying linear transformation on encoder output 
+        dense2 = self.dense2_dialogue(decoder[0])#apply tanh on after applying linear transformation on decoder output 
+        dense3 = self.dense3_dialogue(torch.add(dense1, dense2))#combine the output from dens1 and dense2, then applying linear trnsformation and tanh funtion.  
+		
+        attention = F.softmax(dense3, dim=2) #Apply attention function of the dense3. #Implementation of equation3
+        n_hidden = torch.mul(attention, encoder[0]) #Weighted summerize the result with attention output and sencode output. #Implementation of equation 4  
+        output = self.dialogue_output(torch.cat((encoder[0], n_hidden),dim=2)) #Linear transformation on the output of cascating encoder output and n_hidden #Implementation of equation 5
     
         # input2: Key value table
         if device == torch.device("cuda"):
             input_embed2 = self.input_embed_keyvalue(input_keyvalues.cuda())
         else:
             input_embed2 = self.input_embed_keyvalue(input_keyvalues)
+
+        #Implementation of equation 7
         input_embed2 = reshape(input_embed2, self.batch_size, 431, self.embedding_size, self.pad_length)
-        #print "input_embed2",input_embed2.shape
-        n_dense1 = self.keyvalue_dense1(input_embed2)
-        #print "n_dense1",n_dense1.shape
+        n_dense1 = self.keyvalue_dense1(input_embed2)#apply tanh on after applying linear transformation on input_embed2 
         n_dense1 = reshaped(n_dense1, self.batch_size,  self.pad_length, self.decoder_units)
-        #print "n_dense1",n_dense1.shape
         decoder = reshaped(decoder[0], self.batch_size, self.pad_length, self.decoder_units)
-        #print "decoder",decoder.shape
-        n_dense2 = self.keyvalue_dense2(decoder)
-        #print "n_dense2",n_dense2.shape
-        #print "concat",torch.cat((n_dense1, n_dense2), dim=1).shape
-        n_dense3 = self.keyvalue_dense3(torch.cat((n_dense1, n_dense2), dim=1)) #equation 7
-        #print "n_dense3",n_dense3.shape
-        n_dense3 = reshape2(n_dense3, self.batch_size,  self.pad_length, 431)
-        #print "n_dense3",n_dense3.shape
-        n_out = torch.add(output, n_dense3) # equation 8
-        #print "n_out",n_out.shape
-        #n_output = F.softmax(n_out, dim=2) # equation 9
-        #print "n_output",n_output.shape
+        n_dense2 = self.keyvalue_dense2(decoder)#apply tanh on after applying linear transformation on decoder
+        n_dense3 = self.keyvalue_dense3(torch.cat((n_dense1, n_dense2), dim=1))#apply tanh on after applying linear transformation on cascating result of n_dense1 n_dense1 and n_dense2 
+        
+	#Implementaiton of equation 8
+	n_dense3 = reshape2(n_dense3, self.batch_size,  self.pad_length, 431)
+        n_out = torch.add(output, n_dense3)#Summerize the n_dense3 with the output from the dialogue part. 
+        
         return n_out
 
-    #def initHidden(self):
-    #    return torch.zeros(1, 1, self.hidden_size, device=device)
+  
