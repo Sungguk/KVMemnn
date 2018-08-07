@@ -38,8 +38,6 @@ python bleutest.py
 
 We get Bleu score of 0.43 which is same as original Keras code accuracy at https://github.com/sunnysai12345/KVMemnn/blob/master/utils/Bleu.ipynb
 
-You could also directly download a pre-trained model file from <https://drive.google.com/file/d/1GzotDHN9uiM-15Wt-g-hBYJMi4DqPSCg/> instead of running the training.
-
 License
 ----
 
